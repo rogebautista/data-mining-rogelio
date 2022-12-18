@@ -120,9 +120,7 @@ ggplot(dfResm, aes(x=Var1, y=Var2, fill=value))+
   theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="none")
 ```
 Usando como variable de distancia: 1-resm Dibuja un dendrograma de los diferentes barrios.
-```{r}
-#dfResm
-```
+
 
 ```{r}
 library(cluster)
@@ -203,7 +201,12 @@ Si tuvieramos un anuncio de un apartamento para 6 personas (Accommodates), con 1
 square_metter_value <- predict(model, data.frame(Neighbourhood = "Sol", Accommodates = 6, Bathrooms = 1, Bedrooms = 3, Beds = 3, Price = 80, Review.Scores.Rating = 80, neighb_id = "1", Square.Feet = 650, Guests.Included = 2, Extra.People = 2, Review.Scores.Rating = 80, Latitude = 40.45241, Longitude = -3.699048 ))
 square_metter_value
 ```
-
+¿Como varía sus metros cuadrados con cada habitación adicional?
+```{r}
+#How does your square metters vary with each additional room?
+square_metter_value <- predict(model, data.frame(Neighbourhood = "Sol", Accommodates = 6, Bathrooms = 1, Bedrooms = 4, Beds = 4, Price = 80, Review.Scores.Rating = 80, neighb_id = "1", Square.Feet = 650, Guests.Included = 2, Extra.People = 2, Review.Scores.Rating = 80, Latitude = 40.45241, Longitude = -3.699048 ))
+square_metter_value
+```
 
 
 
@@ -215,9 +218,6 @@ airbnb_extended$Square.Meters[is.na(airbnb_extended$Square.Meters)] <- square_me
 airbnb_extended
 ```
 
-
-```{r}
-```
 Usar PCA para encontrar el apartamento más cercano a uno dado.
 Este algoritmo nos ayudaría a dado un apartamento que el algoritmo nos devolvería los 5 apartamentos más similares.
 Crearemos una función tal que le pasemos un apartamento con los siguientes datos:
@@ -235,34 +235,109 @@ Crearemos una función tal que le pasemos un apartamento con los siguientes dato
 y nos devuelva los 5 más similares de:
 ```{r}
 airbnb_extended <- airbnb_extended %>% mutate(neighb_id = as.factor(cl[match(Neighbourhood, cn)]))
-airbnb_extended
-get_similar_n_apartments <- function(apartment, pca_data, n = 5) {
-  # PCA algorithm
-  distances <- apply(pca_data, 1, function(x) {
-    sqrt(sum((x - apartment)^2))
-  })
-  sorted_appartment <- airbnb_extended[order(distances),]
-  closest_apartments <- head(sorted_appartment, n)
+
+get_similar_apartments <- function( pca_data, apartment, n = 5) {
+  v <- matrix(apartment, nrow = 1)
+
+  v_normalizated <- (v - pca_data$center) / pca_data$scale
+  v_normalizated %*% pca_data$rotation
+  # calculate distances
+    distances <- apply(pca_data$x, 1, function(x) {
+        sqrt(sum((x - v_normalizated)^2))
+    })
+  # get the 5 closest apartments
+  # Si solamene necesiamos sabe cual es, entonces
+  head(order(dist),5) ## y ya
+    #sorted_appartment <- airbnb_extended[order(distances),]
+    #closest_apartments <- head(sorted_appartment, n)
 }
-```
-```{r}
-# count all rows with na values
-sum(is.na(airbnb_extended))
-```
-```{r}
+#Function content to get the 5 closest apartments
 
 ```
+```{r}
+# ejemplo para darme una idea de como funciona
+# remove Neighbourhood and Square.Feet from airbnb_extended
+airbnb_extended_for_distance <- airbnb_extended[,c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")]
+airbnb_extended_for_distance <- airbnb_extended_for_distance[complete.cases(airbnb_extended_for_distance),]
+# Estandariza los datos
+X_std <- scale(airbnb_extended_for_distance)
+# Aplica el PCA
+pca <- prcomp(X_std)
+
+# Selecciona el apartamento dado
+given_apt <- airbnb_extended_for_distance[1, ] # Supongamos que queremos encontrar el apartamento más cercano al primer apartamento en el conjunto de datos
+
+# Encuentra el apartamento más cercano
+distances <- apply(airbnb_extended_for_distance, 1, function(x) sqrt(sum((x - given_apt)^2))) # Calcula las distancias euclidianas entre el apartamento dado y cada uno de los demás apartamentos
+closest_apt <- which.min(distances) # Encuentra el índice del apartamento más cercano
+
+# Devuelve los 5 apartamentos más similares
+most_similar <- head(order(distances), 5) # Ordena los índices de los apartamentos por distancia y selecciona los 5 primeros
+similar_apts <- airbnb_extended[most_similar, ] # Selecciona los apartamentos más similares del conjunto de datos original
+
+similar_apts
+```
+
 ```{r}
 scaled_data <- scale(airbnb_extended[,c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")])
-scaled_data
+# we remove all na values from scaled_data
+scaled_data <- scaled_data[complete.cases(scaled_data),]
 pca_data <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
-#apartment <- airbnb_extended[1,]
-#get_similar_n_apartments(apartment, pca_data)
-
+pca_data
 ```
 
+```{r}
+# Remove Neighbourhood and Square.Feet from apartment
+apartment <- airbnb_extended[1, c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")]
+apartment
+```
 
+```{r}
+#get_similar_n_apartments(apartment, pca_data)
+# Predecir la posición del apartamento dado en el espacio de componentes principales
+apartment_prediction <- predict(pca_data, newdata = apartment)
+apartment_prediction
+```
+
+```{r}
+# Calcular la distancia euclidiana entre el apartamento dado y todos los demás en el espacio de componentes principales
+distances <- dist(rbind(apartment_prediction, pca_data$x))
+```
+
+```{r}
+# Ordenar los apartamentos por distancia y seleccionar los 5 más cercanos
+sorted_apartments <- airbnb_extended[order(distances[1,]), ]
+nearest_apartments <- sorted_apartments[1:5, ]
+nearest_apartments
+```
+```{r}
+find_similar_apartments <- function(apartment, apartments) {
+  airbnb_extended_for_distance <- airbnb_extended[,c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")]
+  airbnb_extended_for_distance <- airbnb_extended_for_distance[complete.cases(airbnb_extended_for_distance),]
+  # Estandarizar las variables
+  apartments_scaled <- scale(airbnb_extended_for_distance)
+
+  # Realizar PCA
+  pca_result <- prcomp(apartments_scaled, center = TRUE, scale. = TRUE)
+
+  # Predecir la posición del apartamento dado en el espacio de componentes principales
+  apartment_prediction <- predict(pca_result, newdata = apartment)
+
+  # Calcular la distancia euclidiana entre el apartamento dado y todos los demás en el espacio de componentes principales
+  distances <- dist(rbind(apartment_prediction, pca_result$x))
+
+  # Ordenar los apartamentos por distancia y seleccionar los 5 más cercanos
+  min_distances <- head(order(distances),5)
+  #sorted_apartments <- airbnb_extended_for_distance[order(distances[1,]), ]
+  #nearest_apartments <- sorted_apartments[1:5, ]
+
+  #return(nearest_apartments)
+  return(min_distances)
+}
 
 ```
 ```{r}
+apartment <- airbnb_extended[1, c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")]
+nearest_apartments <- find_similar_apartments(apartment, airbnb_extended)
+nearest_apartments
 ```
