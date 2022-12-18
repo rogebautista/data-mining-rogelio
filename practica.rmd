@@ -85,6 +85,7 @@ airbnb_extended <- airbnb_extended %>% mutate(Square.Meters = ifelse(Square.Mete
 ```
 ```{r}
 airbnb_extended %>% ggplot(aes(x=Square.Meters)) + geom_histogram(bins=50)
+airbnb_extended
 ```
 Existen varios Barrios que todas sus entradas de Square.Meters son NA, vamos a eliminar del dataset todos los pisos que pertenecen a estos barrios.
 ```{r}
@@ -169,7 +170,9 @@ plot(cut(hcd, h = 0.65)$upper, main = "Corte", cex=0.7)
 Vamos a crear una nueva columna en el dataframe df_madrid con un nuevo identificador marcado por los clusters obtenidos. Esta columna la llamaremos neighb_id
 
 ```{r}
-df_madrid <- airbnb_extended_clean %>% mutate(neighb_id = as.factor(cut_tree[match(Neighbourhood, cn)]))
+cutree(hc, h = 0.65)
+cl<-cutree_1h.dendrogram(hcd,h=0.65)
+df_madrid <- airbnb_extended_clean %>% mutate(neighb_id = as.factor(cl[match(Neighbourhood, cn)]))
 df_madrid
 ```
 ```{r}
@@ -197,18 +200,21 @@ Si tuvieramos un anuncio de un apartamento para 6 personas (Accommodates), con 1
 
 ```{r}
 
-aquare_meters = predict(model, data.frame(Neighbourhood = "Sol", Accommodates = 6, Bathrooms = 1, Bedrooms = 3, Beds = 3, Price = 80, Review.Scores.Rating = 80, neighb_id = "1", Square.Feet = 650, Guests.Included = 2, Extra.People = 2, Review.Scores.Rating = 80, Latitude = 40.45241, Longitude = -3.699048 ))
-
+square_metter_value <- predict(model, data.frame(Neighbourhood = "Sol", Accommodates = 6, Bathrooms = 1, Bedrooms = 3, Beds = 3, Price = 80, Review.Scores.Rating = 80, neighb_id = "1", Square.Feet = 650, Guests.Included = 2, Extra.People = 2, Review.Scores.Rating = 80, Latitude = 40.45241, Longitude = -3.699048 ))
+square_metter_value
 ```
+
 
 
 
 
 Rellenar los Square.Meters con valor NA con el estimado con el modelo anterior.
-
 ```{r}
-df_madrid$Square.Meters[is.na(df_madrid$Square.Meters)] <- predict(model, df_madrid[is.na(df_madrid$Square.Meters),])
+#df_madrid$Square.Meters[is.na(df_madrid$Square.Meters)] <- predict(model, df_madrid[is.na(df_madrid$Square.Meters),])
+airbnb_extended$Square.Meters[is.na(airbnb_extended$Square.Meters)] <- square_metter_value
+airbnb_extended
 ```
+
 
 ```{r}
 ```
@@ -227,3 +233,36 @@ Crearemos una función tal que le pasemos un apartamento con los siguientes dato
 * Longitude
 * Square.Meters
 y nos devuelva los 5 más similares de:
+```{r}
+airbnb_extended <- airbnb_extended %>% mutate(neighb_id = as.factor(cl[match(Neighbourhood, cn)]))
+airbnb_extended
+get_similar_n_apartments <- function(apartment, pca_data, n = 5) {
+  # PCA algorithm
+  distances <- apply(pca_data, 1, function(x) {
+    sqrt(sum((x - apartment)^2))
+  })
+  sorted_appartment <- airbnb_extended[order(distances),]
+  closest_apartments <- head(sorted_appartment, n)
+}
+```
+```{r}
+# count all rows with na values
+sum(is.na(airbnb_extended))
+```
+```{r}
+
+```
+```{r}
+scaled_data <- scale(airbnb_extended[,c("Accommodates", "Bathrooms", "Bedrooms", "Beds", "Price", "Guests.Included", "Extra.People", "Review.Scores.Rating", "Latitude", "Longitude", "Square.Meters")])
+scaled_data
+pca_data <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+#apartment <- airbnb_extended[1,]
+#get_similar_n_apartments(apartment, pca_data)
+
+```
+
+
+
+```
+```{r}
+```
